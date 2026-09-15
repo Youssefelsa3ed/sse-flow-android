@@ -58,25 +58,7 @@ See [Authentication for GitHub Packages](#authentication-for-github-packages) be
 
 ## Quick start
 
-### 1. Issue the streaming request with OkHttp
-
-```kotlin
-val call = okHttpClient.newCall(Request.Builder().url(url).build())
-```
-
-If your API layer is built on Retrofit, declare a `@Streaming` endpoint returning
-`Response<ResponseBody>` and unwrap it with `.raw()` to get the plain `okhttp3.Response` this
-library works with:
-
-```kotlin
-interface ApiService {
-    @Streaming
-    @GET
-    suspend fun streamResults(@Url url: String): Response<ResponseBody>
-}
-```
-
-### 2. Build a `Flow<SseMessage>` and connect
+### 1. Build a `Flow<SseMessage>` and connect
 
 ```kotlin
 import io.github.youssefelsa3ed.sse.SseConnectionManager
@@ -84,13 +66,13 @@ import io.github.youssefelsa3ed.sse.SseMessage
 import io.github.youssefelsa3ed.sse.SseRetryPolicy
 import io.github.youssefelsa3ed.sse.sseFlow
 
-class SearchResultsSSE(private val api: ApiService) {
+class SearchResultsSSE(private val okHttpClient: OkHttpClient) {
 
     private val connectionManager = SseConnectionManager<SseMessage>()
 
     fun start(url: String, onResult: (SseMessage) -> Unit, onFailed: (Throwable) -> Unit) {
         connectionManager.connect(
-            stream = sseFlow { api.streamResults(url).raw() },
+            stream = sseFlow(okHttpClient, url),
             retryPolicy = SseRetryPolicy.Bounded(maxRetries = 1),
             onMessage = onResult,
             onError = onFailed
@@ -101,13 +83,17 @@ class SearchResultsSSE(private val api: ApiService) {
 }
 ```
 
-`sseFlow { ... }` wraps the request in a *cold* flow: the network call only happens when the flow
-is collected, and it happens again on every retry. This is what makes retries actually re-issue
-the HTTP request instead of replaying an already-failed response - **always build your stream this
-way** (or via your own `flow { ... }` builder) rather than passing an already-executed
-`okhttp3.Response`.
+`sseFlow(client, url)` builds a `GET` request with the `Accept`/`Cache-Control` headers an SSE
+endpoint expects, and issues it through the `OkHttpClient` you pass in - reuse your app's existing
+client (the one with your auth/logging interceptors already configured) rather than creating a
+one-off one. Pass extra headers (e.g. `Authorization`) with the `headers` parameter.
 
-### 3. Choose a retry policy
+If you need a different HTTP method, a request body, or anything else that overload doesn't
+expose, drop to the lower-level `sseFlow { ... }` that takes a request lambda instead - see
+[Custom requests](#custom-requests) below. That's also how to integrate with Retrofit, if the rest
+of your API layer is built on it.
+
+### 2. Choose a retry policy
 
 ```kotlin
 // A search stream that is expected to close on its own once results are final.
@@ -126,7 +112,7 @@ SseRetryPolicy.Infinite(
 )
 ```
 
-### 4. `connect` callbacks
+### 3. `connect` callbacks
 
 | Callback | Called when |
 |---|---|
@@ -138,7 +124,7 @@ SseRetryPolicy.Infinite(
 
 ```kotlin
 connectionManager.connect(
-    stream = sseFlow { api.streamResults(url).raw() },
+    stream = sseFlow(okHttpClient, url),
     retryPolicy = SseRetryPolicy.Bounded(maxRetries = 3),
     onStart = { Logger.log("SSE started") },
     onMessage = { message -> handle(message) },
@@ -148,7 +134,7 @@ connectionManager.connect(
 )
 ```
 
-### 5. Clean up
+### 4. Clean up
 
 Call `close()` when the screen/viewmodel/manager that owns the stream is torn down (e.g.
 `onCleared()` / `onDestroy()`). `SseConnectionManager` uses its own internal `SupervisorJob`-backed
@@ -164,6 +150,42 @@ override fun onCleared() {
 
 `connect()` can safely be called again on the same `SseConnectionManager` instance (e.g. to start
 a new search) - it cancels the previous stream first.
+
+## Custom requests
+
+When `sseFlow(client, url)` isn't enough - a different HTTP method, a request body, headers it
+doesn't expose - use the lower-level `sseFlow { ... }` overload and build the `okhttp3.Request`
+yourself:
+
+```kotlin
+val stream: Flow<SseMessage> = sseFlow {
+    val request = Request.Builder()
+        .url(url)
+        .header("Accept", "text/event-stream")
+        .header("Cache-Control", "no-cache")
+        .build()
+    okHttpClient.newCall(request).execute()
+}
+```
+
+`request` is only invoked when the flow is collected, and again on every reconnect driven by
+`SseConnectionManager` - this is what lets a retry issue a brand-new HTTP request instead of
+replaying an already-failed response. **Always build your stream this way** (or via your own
+`flow { ... }` builder) rather than passing an already-executed `okhttp3.Response`.
+
+If your API layer is built on Retrofit, declare a `@Streaming` endpoint returning
+`Response<ResponseBody>` and unwrap it with `.raw()` to get the plain `okhttp3.Response` this
+function expects:
+
+```kotlin
+interface ApiService {
+    @Streaming
+    @GET
+    suspend fun streamResults(@Url url: String): Response<ResponseBody>
+}
+
+val stream: Flow<SseMessage> = sseFlow { api.streamResults(url).raw() }
+```
 
 ## Using only the parser
 
@@ -255,7 +277,7 @@ in-app code:
 
 - The retry loop lives in `SseConnectionManager.connect` via Kotlin Flow's `retryWhen` - it
   re-collects the *entire* upstream flow on retry, which is why the HTTP request itself must
-  happen lazily inside the flow (see [`sseFlow`](#2-build-a-flowssemessage-and-connect) above).
+  happen lazily inside the flow (see [Custom requests](#custom-requests) above).
   A `Flow` built from an already-fetched `Response` will "retry" by replaying a response that has
   already failed.
 - `SseConnectionManager` intentionally does not depend on `ViewModel`, `Activity`, or any other

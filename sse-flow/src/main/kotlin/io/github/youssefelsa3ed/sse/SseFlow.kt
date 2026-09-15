@@ -6,19 +6,57 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.runInterruptible
+import okhttp3.Headers
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody
+
+/**
+ * Issues a `GET` request for [url] through [client] and turns its `text/event-stream` body into a
+ * cold [Flow] of [SseMessage]. A correct request is built for you, with the `Accept` and
+ * `Cache-Control` headers an SSE endpoint expects - [headers] are added on top (and can override
+ * either default by supplying the same header name).
+ *
+ * ```
+ * val stream: Flow<SseMessage> = sseFlow(okHttpClient, url)
+ * ```
+ *
+ * Reuse your app's existing [OkHttpClient] (the one with your auth/logging interceptors already
+ * configured) rather than creating a one-off client just for this call. If you need a different
+ * HTTP method, a request body, or anything else this overload doesn't expose, use the
+ * [sseFlow] overload that takes a request lambda instead.
+ *
+ * Throws [SseHttpException] if the response is not successful. Completes normally when the server
+ * closes the connection.
+ */
+fun sseFlow(client: OkHttpClient, url: String, headers: Headers = Headers.headersOf()): Flow<SseMessage> =
+    sseFlow {
+        val requestHeaders = Headers.Builder()
+            .add("Accept", "text/event-stream")
+            .add("Cache-Control", "no-cache")
+            .apply { headers.forEach { (name, value) -> add(name, value) } }
+            .build()
+        val request = Request.Builder().url(url).headers(requestHeaders).build()
+        runInterruptible { client.newCall(request).execute() }
+    }
 
 /**
  * Issues an HTTP request and turns its `text/event-stream` body into a cold [Flow] of [SseMessage].
  *
  * [request] is only invoked when the returned flow is collected, and again on every reconnect
  * driven by [SseConnectionManager] - this is what lets a retry issue a brand-new HTTP request
- * instead of replaying an already-failed response. A typical OkHttp call to pass in:
+ * instead of replaying an already-failed response. Prefer the [sseFlow] overload that takes an
+ * [OkHttpClient] and a URL directly unless you need custom request building (a different method,
+ * a request body, headers beyond what that overload exposes, ...):
  *
  * ```
  * val stream: Flow<SseMessage> = sseFlow {
- *     okHttpClient.newCall(Request.Builder().url(url).build()).execute()
+ *     val request = Request.Builder()
+ *         .url(url)
+ *         .header("Accept", "text/event-stream")
+ *         .build()
+ *     okHttpClient.newCall(request).execute()
  * }
  * ```
  *

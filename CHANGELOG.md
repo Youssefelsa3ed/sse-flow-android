@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-09-15
+
+### Added
+
+- `sseFlow(client: OkHttpClient, url: String, headers: Headers = ...)`: convenience overload that
+  builds a `GET` request with the `Accept`/`Cache-Control` headers an SSE endpoint expects and
+  issues it through the given client, so most callers no longer need to build the
+  `okhttp3.Request` by hand. The existing `sseFlow(request: suspend () -> Response)` remains
+  available for custom methods/bodies/headers.
+
 ## [0.2.0] - 2026-09-15
 
 ### Changed
