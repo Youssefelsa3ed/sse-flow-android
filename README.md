@@ -66,7 +66,7 @@ import io.github.youssefelsa3ed.sse.SseMessage
 import io.github.youssefelsa3ed.sse.SseRetryPolicy
 import io.github.youssefelsa3ed.sse.sseFlow
 
-class SearchResultsSSE(private val okHttpClient: OkHttpClient) {
+class LiveUpdatesClient(private val okHttpClient: OkHttpClient) {
 
     private val connectionManager = SseConnectionManager<SseMessage>()
 
