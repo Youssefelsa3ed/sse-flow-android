@@ -1,7 +1,8 @@
 # sse-flow
 
 A lightweight, `Flow`-based Server-Sent Events (SSE) client for Kotlin/Android, built on
-[OkHttp](https://square.github.io/okhttp/) and [Retrofit](https://square.github.io/retrofit/).
+[OkHttp](https://square.github.io/okhttp/) only - no Retrofit dependency required (though it
+works great alongside Retrofit if the rest of your API layer already uses it).
 
 It's built from three small, testable pieces:
 
@@ -12,7 +13,7 @@ It's built from three small, testable pieces:
   pluggable reconnect behavior: bounded retries with a fixed delay, or infinite retries with
   exponential backoff.
 - **[`sseFlow` / `SseMessage`](sse-flow/src/main/kotlin/io/github/youssefelsa3ed/sse/SseFlow.kt)** -
-  turns a Retrofit `@Streaming` response into a cold `Flow<SseMessage>` by parsing the raw
+  turns an OkHttp streaming response into a cold `Flow<SseMessage>` by parsing the raw
   `text/event-stream` wire format.
 
 The three pieces are independent - use just the parser, just the connection manager with your own
@@ -55,7 +56,15 @@ See [Authentication for GitHub Packages](#authentication-for-github-packages) be
 
 ## Quick start
 
-### 1. Define a `@Streaming` endpoint
+### 1. Issue the streaming request with OkHttp
+
+```kotlin
+val call = okHttpClient.newCall(Request.Builder().url(url).build())
+```
+
+If your API layer is built on Retrofit, declare a `@Streaming` endpoint returning
+`Response<ResponseBody>` and unwrap it with `.raw()` to get the plain `okhttp3.Response` this
+library works with:
 
 ```kotlin
 interface ApiService {
@@ -79,7 +88,7 @@ class SearchResultsSSE(private val api: ApiService) {
 
     fun start(url: String, onResult: (SseMessage) -> Unit, onFailed: (Throwable) -> Unit) {
         connectionManager.connect(
-            stream = sseFlow { api.streamResults(url) },
+            stream = sseFlow { api.streamResults(url).raw() },
             retryPolicy = SseRetryPolicy.Bounded(maxRetries = 1),
             onMessage = onResult,
             onError = onFailed
@@ -94,7 +103,7 @@ class SearchResultsSSE(private val api: ApiService) {
 is collected, and it happens again on every retry. This is what makes retries actually re-issue
 the HTTP request instead of replaying an already-failed response - **always build your stream this
 way** (or via your own `flow { ... }` builder) rather than passing an already-executed
-`Response<ResponseBody>`.
+`okhttp3.Response`.
 
 ### 3. Choose a retry policy
 
@@ -127,7 +136,7 @@ SseRetryPolicy.Infinite(
 
 ```kotlin
 connectionManager.connect(
-    stream = sseFlow { api.streamResults(url) },
+    stream = sseFlow { api.streamResults(url).raw() },
     retryPolicy = SseRetryPolicy.Bounded(maxRetries = 3),
     onStart = { Logger.log("SSE started") },
     onMessage = { message -> handle(message) },
@@ -161,8 +170,8 @@ If you already manage your own coroutine scope/retry logic and just need the wir
 ```kotlin
 import io.github.youssefelsa3ed.sse.toSseMessageFlow
 
-val response: Response<ResponseBody> = api.streamResults(url)
-val messages: Flow<SseMessage> = response.body()!!.toSseMessageFlow()
+val response: okhttp3.Response = call.execute()
+val messages: Flow<SseMessage> = response.body.toSseMessageFlow()
 ```
 
 Note this overload does not repeat the HTTP call on collection - see the KDoc on
@@ -256,7 +265,9 @@ in-app code:
 
 - Kotlin 2.x, JVM target 21
 - `kotlinx-coroutines-core` (brought in transitively)
-- `okhttp` 5.x and `retrofit` 3.x (brought in transitively)
+- `okhttp` 5.x (brought in transitively)
+- Retrofit is *not* a dependency - `sseFlow` takes a plain `okhttp3.Response`, so it works
+  whether or not the rest of your app uses Retrofit
 
 ## License
 

@@ -2,38 +2,47 @@ package io.github.youssefelsa3ed.sse
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.runInterruptible
+import okhttp3.Response
 import okhttp3.ResponseBody
-import retrofit2.HttpException
-import retrofit2.Response
 
 /**
  * Issues an HTTP request and turns its `text/event-stream` body into a cold [Flow] of [SseMessage].
  *
  * [request] is only invoked when the returned flow is collected, and again on every reconnect
  * driven by [SseConnectionManager] - this is what lets a retry issue a brand-new HTTP request
- * instead of replaying an already-failed response. A typical Retrofit endpoint to pass in:
+ * instead of replaying an already-failed response. A typical OkHttp call to pass in:
+ *
+ * ```
+ * val stream: Flow<SseMessage> = sseFlow {
+ *     okHttpClient.newCall(Request.Builder().url(url).build()).execute()
+ * }
+ * ```
+ *
+ * If you already use Retrofit for the rest of your API and declared a `@Streaming` endpoint
+ * returning `Response<ResponseBody>`, unwrap it with `.raw()` to get the `okhttp3.Response` this
+ * function expects:
  *
  * ```
  * interface ApiService {
  *     @Streaming
  *     @GET
- *     suspend fun streamResults(@Url url: String): Response<ResponseBody>
+ *     suspend fun streamResults(@Url url: String): retrofit2.Response<ResponseBody>
  * }
  *
- * val stream: Flow<SseMessage> = sseFlow { apiService.streamResults(url) }
+ * val stream: Flow<SseMessage> = sseFlow { apiService.streamResults(url).raw() }
  * ```
  *
- * Throws [HttpException] if the response is not successful. Completes normally when the server
+ * Throws [SseHttpException] if the response is not successful. Completes normally when the server
  * closes the connection.
  */
-fun sseFlow(request: suspend () -> Response<ResponseBody>): Flow<SseMessage> = flow {
+fun sseFlow(request: suspend () -> Response): Flow<SseMessage> = flow {
     val response = request()
-    if (!response.isSuccessful) throw HttpException(response)
-    val body = response.body() ?: return@flow
-    body.parseSseMessagesInto(this)
+    if (!response.isSuccessful) throw SseHttpException(response)
+    response.body.parseSseMessagesInto(this)
 }.flowOn(Dispatchers.IO)
 
 /**
@@ -50,7 +59,7 @@ fun ResponseBody.toSseMessageFlow(): Flow<SseMessage> = flow {
 }.flowOn(Dispatchers.IO)
 
 private suspend fun ResponseBody.parseSseMessagesInto(
-    collector: kotlinx.coroutines.flow.FlowCollector<SseMessage>
+    collector: FlowCollector<SseMessage>
 ) {
     source().use { source ->
         var id: String? = null

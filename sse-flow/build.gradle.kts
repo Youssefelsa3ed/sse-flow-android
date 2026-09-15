@@ -16,7 +16,6 @@ kotlin {
 dependencies {
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     api("com.squareup.okhttp3:okhttp:5.4.0")
-    api("com.squareup.retrofit2:retrofit:3.0.0")
 
     testImplementation(kotlin("test-junit5"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
@@ -40,7 +39,7 @@ publishing {
                 name.set("sse-flow")
                 description.set(
                     "A lightweight, Flow-based Server-Sent Events (SSE) client for Kotlin/Android, " +
-                        "built on OkHttp + Retrofit. Provides connection lifecycle management, " +
+                        "built on OkHttp. Provides connection lifecycle management, " +
                         "configurable retry/backoff policies, and SSE wire-format parsing."
                 )
                 url.set("https://github.com/youssefelsa3ed/sse-flow-android")
