@@ -1,5 +1,7 @@
 # sse-flow
 
+[![Version](https://img.shields.io/github/v/tag/youssefelsa3ed/sse-flow-android?label=version)](https://github.com/youssefelsa3ed/sse-flow-android/releases)
+
 A lightweight, `Flow`-based Server-Sent Events (SSE) client for Kotlin/Android, built on
 [OkHttp](https://square.github.io/okhttp/) only - no Retrofit dependency required (though it
 works great alongside Retrofit if the rest of your API layer already uses it).
