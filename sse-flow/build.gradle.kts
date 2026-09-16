@@ -1,12 +1,13 @@
+import com.vanniktech.maven.publish.KotlinJvm
+
 plugins {
     kotlin("jvm")
-    `maven-publish`
+    id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
-    withSourcesJar()
 }
 
 kotlin {
@@ -26,55 +27,43 @@ tasks.test {
     useJUnitPlatform()
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            from(components["java"])
+mavenPublishing {
+    configure(KotlinJvm())
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
 
-            groupId = project.group.toString()
-            artifactId = "sse-flow"
-            version = project.version.toString()
+    coordinates(project.group.toString(), "sse-flow", project.version.toString())
 
-            pom {
-                name.set("sse-flow")
-                description.set(
-                    "A lightweight, Flow-based Server-Sent Events (SSE) client for Kotlin/Android, " +
-                        "built on OkHttp. Provides connection lifecycle management, " +
-                        "configurable retry/backoff policies, and SSE wire-format parsing."
-                )
-                url.set("https://github.com/youssefelsa3ed/sse-flow-android")
+    pom {
+        name.set("sse-flow")
+        description.set(
+            "A lightweight, Flow-based Server-Sent Events (SSE) client for Kotlin/Android, " +
+                "built on OkHttp. Provides connection lifecycle management, " +
+                "configurable retry/backoff policies, and SSE wire-format parsing."
+        )
+        inceptionYear.set("2026")
+        url.set("https://github.com/youssefelsa3ed/sse-flow-android")
 
-                licenses {
-                    license {
-                        name.set("The Apache License, Version 2.0")
-                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
-                }
-
-                developers {
-                    developer {
-                        id.set("youssefelsa3ed")
-                        name.set("Youssef Farahat")
-                    }
-                }
-
-                scm {
-                    connection.set("scm:git:https://github.com/youssefelsa3ed/sse-flow-android.git")
-                    developerConnection.set("scm:git:ssh://git@github.com/youssefelsa3ed/sse-flow-android.git")
-                    url.set("https://github.com/youssefelsa3ed/sse-flow-android")
-                }
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
             }
         }
-    }
 
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/youssefelsa3ed/sse-flow-android")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: findProperty("gpr.user") as String?
-                password = System.getenv("GITHUB_TOKEN") ?: findProperty("gpr.key") as String?
+        developers {
+            developer {
+                id.set("youssefelsa3ed")
+                name.set("Youssef Farahat")
+                url.set("https://github.com/youssefelsa3ed")
             }
+        }
+
+        scm {
+            url.set("https://github.com/youssefelsa3ed/sse-flow-android")
+            connection.set("scm:git:git://github.com/youssefelsa3ed/sse-flow-android.git")
+            developerConnection.set("scm:git:ssh://git@github.com/youssefelsa3ed/sse-flow-android.git")
         }
     }
 }

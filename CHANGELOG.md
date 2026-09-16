@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Publishing moved from GitHub Packages to **Maven Central**. Consumers no longer need a GitHub
+  personal access token to resolve the dependency - `mavenCentral()` (already in almost every
+  project's default repositories) is enough. No code changes; this only affects how the artifact
+  is distributed.
+
 ## [0.3.0] - 2026-09-15
 
 ### Added

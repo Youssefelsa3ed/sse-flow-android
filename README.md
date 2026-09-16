@@ -23,28 +23,8 @@ The three pieces are independent - use just the parser, just the connection mana
 
 ## Installation
 
-The library is published to **GitHub Packages**. Add the repository and the dependency:
-
-```kotlin
-// settings.gradle.kts (dependencyResolutionManagement.repositories),
-// or the top-level repositories block in an older project layout
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-        maven {
-            name = "sse-flow"
-            url = uri("https://maven.pkg.github.com/youssefelsa3ed/sse-flow-android")
-            credentials {
-                // A GitHub personal access token with `read:packages` scope.
-                // GitHub Packages requires authentication even for public repositories.
-                username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
-                password = providers.gradleProperty("gpr.key").orNull ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
-}
-```
+The library is published to **Maven Central** - no extra repository or credentials needed, just
+the dependency:
 
 ```kotlin
 // app/build.gradle.kts (or wherever you make the network call)
@@ -53,8 +33,8 @@ dependencies {
 }
 ```
 
-See [Authentication for GitHub Packages](#authentication-for-github-packages) below for where
-`gpr.user` / `gpr.key` come from.
+`mavenCentral()` needs to be in your `repositories { ... }` block, which it already is in almost
+every Gradle project by default.
 
 ## Quick start
 
@@ -231,23 +211,9 @@ One parsed SSE event: everything between two blank lines in the raw `text/event-
 distinguishes multiple message types on the same connection (e.g. `event: heartbeat` vs.
 `event: result`).
 
-## Authentication for GitHub Packages
-
-GitHub Packages requires authentication to *read* packages, even public ones. Consumers of this
-library need a GitHub [personal access token](https://github.com/settings/tokens) with the
-`read:packages` scope, supplied as `gpr.user` / `gpr.key` Gradle properties (in
-`~/.gradle/gradle.properties`, kept out of version control) or as `GITHUB_ACTOR` / `GITHUB_TOKEN`
-environment variables (e.g. in CI):
-
-```properties
-# ~/.gradle/gradle.properties (do not commit)
-gpr.user=your-github-username
-gpr.key=ghp_your_personal_access_token
-```
-
 ## Publishing a new version
 
-Releases are published to GitHub Packages automatically by
+Releases are published to Maven Central automatically by
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml) whenever a tag matching `v*.*.*`
 is pushed:
 
@@ -257,18 +223,28 @@ git push origin v1.0.0
 ```
 
 The workflow derives the published version from the tag (`v1.0.0` -> `1.0.0`) and runs
-`./gradlew publish`. It uses the repository's built-in `GITHUB_TOKEN`, so no extra secrets are
-required.
+`./gradlew publishAndReleaseToMavenCentral`, which builds, signs, uploads, and auto-releases the
+artifacts in one step via the [Vanniktech Maven Publish
+plugin](https://vanniktech.github.io/gradle-maven-publish-plugin/central/). It needs these repo
+secrets configured under *Settings > Secrets and variables > Actions* (one-time setup, from a
+[Central Portal](https://central.sonatype.com) user token and a GPG key):
 
-To publish manually from your machine instead:
+- `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` - a Central Portal user token (Account ->
+  Generate User Token), *not* your login password
+- `GPG_SIGNING_KEY` - your GPG private key, ASCII-armored (`gpg --export-secret-keys --armor <key-id>`)
+- `GPG_SIGNING_KEY_ID` - the key's short id (`gpg --list-secret-keys --keyid-format short`)
+- `GPG_SIGNING_PASSWORD` - the GPG key's passphrase
+
+To publish manually from your machine instead, put the same four values in
+`~/.gradle/gradle.properties` as `mavenCentralUsername`, `mavenCentralPassword`,
+`signingInMemoryKey`/`signingInMemoryKeyId`, and `signingInMemoryKeyPassword`, then run:
 
 ```bash
-./gradlew publish -PlibraryVersion=1.0.0
+./gradlew publishAndReleaseToMavenCentral -PlibraryVersion=1.0.0
 ```
 
-This requires `gpr.user` / `gpr.key` (or `GITHUB_ACTOR` / `GITHUB_TOKEN`) to be set, with a token
-that has the `write:packages` scope - see
-[Authentication for GitHub Packages](#authentication-for-github-packages).
+A freshly released version can take a few minutes to show up in search/dependency resolution after
+the workflow finishes.
 
 ## Design notes / migrating from an in-app copy of this code
 
