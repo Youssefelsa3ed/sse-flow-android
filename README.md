@@ -22,12 +22,11 @@ The three pieces are independent - use just the parser, just the connection mana
 
 ## Installation
 
-The library is published to **Maven Central**. No extra repository and no credentials - every
-Gradle project already has `mavenCentral()` in its repositories by default, so all you add is the
-dependency:
-
 ```kotlin
-// app/build.gradle.kts (or wherever you make the network call)
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     implementation("io.github.youssefelsa3ed:sse-flow:<version>")
 }
