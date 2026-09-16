@@ -3,8 +3,7 @@
 [![Version](https://img.shields.io/github/v/tag/youssefelsa3ed/sse-flow-android?label=version)](https://github.com/youssefelsa3ed/sse-flow-android/releases)
 
 A lightweight, `Flow`-based Server-Sent Events (SSE) client for Kotlin/Android, built on
-[OkHttp](https://square.github.io/okhttp/) only - no Retrofit dependency required (though it
-works great alongside Retrofit if the rest of your API layer already uses it).
+[OkHttp](https://square.github.io/okhttp/).
 
 It's built from three small, testable pieces:
 
@@ -23,8 +22,9 @@ The three pieces are independent - use just the parser, just the connection mana
 
 ## Installation
 
-The library is published to **Maven Central** - no extra repository or credentials needed, just
-the dependency:
+The library is published to **Maven Central**. No extra repository and no credentials - every
+Gradle project already has `mavenCentral()` in its repositories by default, so all you add is the
+dependency:
 
 ```kotlin
 // app/build.gradle.kts (or wherever you make the network call)
@@ -32,9 +32,6 @@ dependencies {
     implementation("io.github.youssefelsa3ed:sse-flow:<version>")
 }
 ```
-
-`mavenCentral()` needs to be in your `repositories { ... }` block, which it already is in almost
-every Gradle project by default.
 
 ## Quick start
 
@@ -70,8 +67,7 @@ one-off one. Pass extra headers (e.g. `Authorization`) with the `headers` parame
 
 If you need a different HTTP method, a request body, or anything else that overload doesn't
 expose, drop to the lower-level `sseFlow { ... }` that takes a request lambda instead - see
-[Custom requests](#custom-requests) below. That's also how to integrate with Retrofit, if the rest
-of your API layer is built on it.
+[Custom requests](#custom-requests) below.
 
 ### 2. Choose a retry policy
 
@@ -152,20 +148,6 @@ val stream: Flow<SseMessage> = sseFlow {
 `SseConnectionManager` - this is what lets a retry issue a brand-new HTTP request instead of
 replaying an already-failed response. **Always build your stream this way** (or via your own
 `flow { ... }` builder) rather than passing an already-executed `okhttp3.Response`.
-
-If your API layer is built on Retrofit, declare a `@Streaming` endpoint returning
-`Response<ResponseBody>` and unwrap it with `.raw()` to get the plain `okhttp3.Response` this
-function expects:
-
-```kotlin
-interface ApiService {
-    @Streaming
-    @GET
-    suspend fun streamResults(@Url url: String): Response<ResponseBody>
-}
-
-val stream: Flow<SseMessage> = sseFlow { api.streamResults(url).raw() }
-```
 
 ## Using only the parser
 
@@ -266,8 +248,6 @@ in-app code:
 - Kotlin 2.x, JVM target 21
 - `kotlinx-coroutines-core` (brought in transitively)
 - `okhttp` 5.x (brought in transitively)
-- Retrofit is *not* a dependency - `sseFlow` takes a plain `okhttp3.Response`, so it works
-  whether or not the rest of your app uses Retrofit
 
 ## License
 
